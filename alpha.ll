@@ -5,15 +5,16 @@ declare i32 @printf(i8*, ...)
 @printf_s = constant [3 x i8] c"%s\00"
 @printf_c = constant [3 x i8] c"%c\00"
 
-
 @prompt = constant [3 x i8] c"> \00"
 
 @max_word_length = constant i8 256
 
 ;;; token tag enums
 
-@tok_tag_error = constant i4 0
+;@tok_tag_error = constant i4 0
 @tok_tag_name = constant i4 1
+@tok_tag_bracket_open = constant i4 2
+@tok_tag_bracket_close = constant i4 3
 
 ;;; types
 
@@ -23,11 +24,6 @@ declare i32 @printf(i8*, ...)
 
 define %token @read_token() {
 loop_header:
-  ; read globals from memory
-  %tok_error = load i4* @tok_tag_error
-  %tok_name = load i4* @tok_tag_name
-  
-  ; create current_name to store function names in
   %current_name = alloca %name
   %current_name_start = getelementptr %name* %current_name, i64 0, i64 0
   br label %loop
@@ -43,43 +39,43 @@ loop:
             i32 32, label %space           ; 32 = ' '
             i32 91, label %bracket_open    ; 91 = '['
             i32 93, label %bracket_close ] ; 93 = ']'
+newline:
+  br label %space
 space:
   store i8 0, i8* %current_name_end ; null terminate the string
   call i32 @puts(i8* %current_name_start)
-  %t = call %token @name_token(%tag %tok_name, %name* %current_name)
+  %t = call %token @name_token(%name* %current_name)
   ret %token %t
-newline:
-  br label %return
-;  ret %token {i4 0, %name %current_name}
-;  ret i32 0
 bracket_open:
-  br label %return
-;  ret %token {i4 0, %name %current_name}
-;  ret i32 0
+  %tag_bracket_open = load %tag* @tok_tag_bracket_open
+  %tok_bracket_open = call %token @tok_from_tag(%tag %tag_bracket_open)
+  ret %token %tok_bracket_open
 bracket_close:
-  br label %return
-;  ret %token {i4 0, %name %current_name}
-;  ret i32 0
+  %tag_bracket_close = load %tag* @tok_tag_bracket_close
+  %tok_bracket_close = call %token @tok_from_tag(%tag %tag_bracket_close)
+  ret %token %tok_bracket_close
 otherwise:
   %char_as_i8 = trunc i32 %char to i8
   store i8 %char_as_i8, i8* %current_name_end ; append char to current_name
   br label %loop
-return:
-;  %t2 = insertvalue %token {%tag %tok_error, %name* undef}, %name* %current_name, 1
-  %t2 = call %token @tok_error()
-  ret %token %t2
 }
 
-define %token @tok_error() {
-  %tok_tag_error = load i4* @tok_tag_error
-  %t = insertvalue %token undef, %tag %tok_tag_error, 0
-  ret %token %t
+define %token @tok_from_tag(%tag %tok_tag) {
+  %tok = insertvalue %token undef, %tag %tok_tag, 0
+  ret %token %tok
 }
 
-define %token @name_token(%tag %t, %name* %n) {
-  %t1 = insertvalue %token {%tag undef, %name* undef}, %tag %t, 0
-  %t2 = insertvalue %token %t1, %name* %n, 1
-  ret %token %t2
+; define %token @tok_error() {
+;   %tok_tag_error = load i4* @tok_tag_error
+;   %t = insertvalue %token undef, %tag %tok_tag_error, 0
+;   ret %token %t
+; }
+
+define %token @name_token(%name* %n) {
+  %tok_tag = load %tag* @tok_tag_name
+  %tok_with_tag = insertvalue %token undef, %tag %tok_tag, 0
+  %tok_with_name = insertvalue %token %tok_with_tag, %name* %n, 1
+  ret %token %tok_with_name
 }
 
 ; like puts, but without newline
