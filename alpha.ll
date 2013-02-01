@@ -7,6 +7,11 @@ declare i32 @printf(i8*, ...)
 
 @prompt = constant [3 x i8] c"> \00"
 
+@found_open = constant [9 x i8] c"Found: [\00"
+@found_close = constant [9 x i8] c"Found: ]\00"
+@found_name = constant [13 x i8] c"Found a name\00"
+@found_error = constant [7 x i8] c"error!\00"
+
 @max_word_length = constant i8 256
 
 ;;; token tag enums
@@ -65,17 +70,45 @@ define %token @tok_from_tag(%tag %tok_tag) {
   ret %token %tok
 }
 
-; define %token @tok_error() {
-;   %tok_tag_error = load i4* @tok_tag_error
-;   %t = insertvalue %token undef, %tag %tok_tag_error, 0
-;   ret %token %t
-; }
-
 define %token @name_token(%name* %n) {
   %tok_tag = load %tag* @tok_tag_name
   %tok_with_tag = insertvalue %token undef, %tag %tok_tag, 0
   %tok_with_name = insertvalue %token %tok_with_tag, %name* %n, 1
   ret %token %tok_with_name
+}
+
+define void @print_token(%token %tok) {
+  %tag_name = load %tag* @tok_tag_name
+  %tag_bracket_open = load %tag* @tok_tag_bracket_open
+  %tag_bracket_close = load %tag* @tok_tag_bracket_close
+
+  %tok_tag = extractvalue %token %tok, 0
+
+  %is_name = icmp eq %tag %tok_tag, %tag_name
+  br i1 %is_name, label %name, label %else_if1
+else_if1:
+  %is_bracket_open = icmp eq %tag %tok_tag, %tag_bracket_open
+  br i1 %is_bracket_open, label %bracket_open, label %else_if2
+else_if2:
+  %is_bracket_close = icmp eq %tag %tok_tag, %tag_bracket_close
+  br i1 %is_bracket_close, label %bracket_close, label %error
+
+name:
+  %found_name = getelementptr [13 x i8]* @found_name, i64 0, i64 0
+  call i32 @puts(i8* %found_name)
+  ret void
+bracket_open:
+  %found_open = getelementptr [9 x i8]* @found_open, i64 0, i64 0
+  call i32 @puts(i8* %found_open)
+  ret void
+bracket_close:
+  %found_close = getelementptr [9 x i8]* @found_close, i64 0, i64 0
+  call i32 @puts(i8* %found_close)
+  ret void
+error:
+  %found_error = getelementptr [7 x i8]* @found_error, i64 0, i64 0
+  call i32 @puts(i8* %found_error)
+  ret void
 }
 
 ; like puts, but without newline
@@ -89,6 +122,7 @@ define i32 @repl() {
   %prompt = getelementptr [3 x i8]* @prompt, i64 0, i64 0
   call i32 @print(i8* %prompt)
   %tok = call %token @read_token()
+  call void @print_token(%token %tok)
   %ret = tail call i32 @repl()
   ret i32 %ret
 }
