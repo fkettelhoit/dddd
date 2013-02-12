@@ -1,3 +1,31 @@
+declare i8* @gets(i8*)
+declare i8* @strtok(i8*, i8*)
+declare i8* @malloc(i64)
+
+@prompt = constant [3 x i8] c"> \00"
+@max_input = constant [256 x i8] zeroinitializer
+
+define i32 @main() {
+  ; print "> "
+  %prompt = getelementptr [3 x i8]* @prompt, i64 0, i64 0
+  call i32 @print(i8* %prompt)
+  ; get string
+  ; %stdin = getelementptr [256 x i8]* @max_input, i64 0, i64 0
+  ; call i8* @gets(i8* %stdin)
+  %empty_stack = call %stack* @new_stack()
+  %s = call %stack* @read(%stack* %empty_stack)
+;  call i32 @print_stack(%stack* %empty_stack)
+  call i32 @print_stack(%stack* %s)
+;  call i32 @print_stack(%stack* @example_stack2)
+  ; exit gracefully
+  ret i32 0
+}
+
+
+
+;;;;;;;;;;;;;;;;; old stuff ;;;;;;;;;;;;;;;;;;;;;;;;
+
+
 declare i32 @puts(i8*)
 declare i32 @getchar()
 declare i32 @printf(i8*, ...)
@@ -7,8 +35,6 @@ declare i32 @strcmp(i8*, i8*)
 @printf_s = constant [3 x i8] c"%s\00"
 @printf_c = constant [3 x i8] c"%c\00"
 @printf_c2 = constant [3 x i8] c"%c\00"
-
-@prompt = constant [3 x i8] c"> \00"
 
 @found_open = constant [9 x i8] c"Found: [\00"
 @found_close = constant [9 x i8] c"Found: ]\00"
@@ -33,13 +59,67 @@ declare i32 @strcmp(i8*, i8*)
 
 ;;; types
 
-%name = type [256 x i8]
-%tag = type i4
-%token = type {%tag, %name*}
+;%name = type [256 x i8]
+;%tag = type i4
+;%token = type {%tag, %name*}
 
-define %token @read_token() {
+%name = type [256 x i8]
+%stack = type {i1, %elem, %stack*}
+%elem = type {i1, %name*, %stack*}
+
+define %elem @elem_from_name(%name* %n) {
+  %e_with_tag = insertvalue %elem zeroinitializer, i1 0, 0
+  %e = insertvalue %elem %e_with_tag, %name* %n, 1
+  ret %elem %e
+}
+
+define %stack* @malloc_stack() {
+  %one_Stack_long = getelementptr %stack* null, i64 1
+  %sizeof_Stack = ptrtoint %stack* %one_Stack_long to i64
+  %void_ptr = call i8* @malloc(i64 %sizeof_Stack)
+  %ptr = bitcast i8* %void_ptr to %stack*
+  ret %stack* %ptr
+}
+
+define %stack* @push_elem(%stack* %old_stack, %elem %e) {
+  %s_with_elem = insertvalue %stack {i1 1, %elem undef, %stack* undef}, %elem %e, 1
+  %new_stack = insertvalue %stack %s_with_elem, %stack* %old_stack, 2
+;  %ptr = alloca %stack
+  %ptr = call %stack* @malloc_stack()
+  store %stack %new_stack, %stack* %ptr
+  ret %stack* %ptr
+}
+
+@nil_stack = constant %stack {i1 0, %elem undef, %stack* undef}
+
+define %stack* @new_stack2() {
+  ret %stack* @nil_stack
+}
+
+define %stack* @new_stack() {
+  ; %one_Stack_long = getelementptr %stack* null, i64 1
+  ; %sizeof_Stack = ptrtoint %stack* %one_Stack_long to i64
+  ; %void_ptr = call i8* @malloc(i64 %sizeof_Stack)
+  ; %ptr = bitcast i8* %void_ptr to %stack*
+;  %ptr = alloca %stack
+  %ptr = call %stack* @malloc_stack()
+  store %stack {i1 0, %elem undef, %stack* undef}, %stack* %ptr
+  ret %stack* %ptr
+;  ret %stack* undef
+}
+
+define %name* @malloc_name() {
+  %sizeof_one = getelementptr %name* null, i64 1
+  %size = ptrtoint %name* %sizeof_one to i64
+  %void_ptr = call i8* @malloc(i64 %size)
+  %ptr = bitcast i8* %void_ptr to %name*
+  ret %name* %ptr
+}
+
+define %stack* @read(%stack* %old_stack) {
 loop_header:
-  %current_name = alloca %name
+;  %current_name = alloca %name
+  %current_name = call %name* @malloc_name()
   %current_name_start = getelementptr %name* %current_name, i64 0, i64 0
   br label %loop
 loop:
@@ -52,23 +132,27 @@ loop:
   switch i32 %char, label %otherwise
           [ i32 10, label %newline         ; 10 = '\n'
             i32 32, label %space           ; 32 = ' '
-            i32 91, label %bracket_open    ; 91 = '['
-            i32 93, label %bracket_close ] ; 93 = ']'
+;            i32 91, label %bracket_open    ; 91 = '['
+;            i32 93, label %bracket_close ] ; 93 = ']'
+ ]
 newline:
-  br label %space
+  ret %stack* %old_stack
 space:
   store i8 0, i8* %current_name_end ; null terminate the string
-  call i32 @puts(i8* %current_name_start)
-  %t = call %token @name_token(%name* %current_name)
-  ret %token %t
-bracket_open:
-  %tag_bracket_open = load %tag* @tok_tag_bracket_open
-  %tok_bracket_open = call %token @tok_from_tag(%tag %tag_bracket_open)
-  ret %token %tok_bracket_open
-bracket_close:
-  %tag_bracket_close = load %tag* @tok_tag_bracket_close
-  %tok_bracket_close = call %token @tok_from_tag(%tag %tag_bracket_close)
-  ret %token %tok_bracket_close
+  ;;; I need to compare idx for 0 here -> no string yet
+  %e = call %elem @elem_from_name(%name* %current_name)
+  %new_stack = call %stack* @push_elem(%stack* %old_stack, %elem %e)
+  %tail_ret = tail call %stack* @read(%stack* %new_stack)
+  ret %stack* %tail_ret
+;  ret %stack* %new_stack
+; bracket_open:
+;   %tag_bracket_open = load %tag* @tok_tag_bracket_open
+;   %tok_bracket_open = call %token @tok_from_tag(%tag %tag_bracket_open)
+;   ret %token %tok_bracket_open
+; bracket_close:
+;   %tag_bracket_close = load %tag* @tok_tag_bracket_close
+;   %tok_bracket_close = call %token @tok_from_tag(%tag %tag_bracket_close)
+;   ret %token %tok_bracket_close
 otherwise:
   %char_as_i8 = trunc i32 %char to i8
   store i8 %char_as_i8, i8* %current_name_end ; append char to current_name
@@ -79,23 +163,17 @@ otherwise:
 ; %stack = type {%stack_ptr, [1024 x %elem]}
 
  ; stack = nil (if i1 = 0) or %elem + ptr to next %elem
-%stack = type {i1, %elem, %stack*}
-%elem = type {i1, %name*, %stack*}
 
-@nil_stack = constant %stack {i1 0, %elem undef, %stack* undef}
+
+
+
 @name_drop = constant %name c"drop\00                                                                                                                                                                                                                                                          \00"
 @name_dup = constant %name c"dup\00                                                                                                                                                                                                                                                           \00"
 @name_dip = constant %name c"dip\00                                                                                                                                                                                                                                                           \00"
 @name_do = constant %name c"do\00                                                                                                                                                                                                                                                            \00"
-@example_stack = constant %stack {i1 1, %elem {i1 0, %name* @name_drop, %stack* @nil_stack}, %stack* @nil_stack}8
-        
-define i32 @main() {
-  %s = getelementptr %stack* @example_stack, i64 0
-  call i32 @print_stack(%stack* %s)
-;  %ret = tail call i32 @repl()
-;  ret i32 %ret
-  ret i32 0
-}
+
+@example_stack = constant %stack {i1 1, %elem {i1 0, %name* @name_drop, %stack* @nil_stack}, %stack* @nil_stack}
+@example_stack2 = constant %stack {i1 1, %elem {i1 0, %name* @name_dup, %stack* @nil_stack}, %stack* @example_stack}
 
 @str_lbracket = constant [2 x i8] c"[\00"
 @str_rbracket = constant [2 x i8] c"]\00"
@@ -114,8 +192,11 @@ not_nil:
 e_is_name:
   %e_name = extractvalue %elem %e, 1
   %name_ptr = getelementptr %name* %e_name, i64 0, i64 0
-  %ret_name = call i32 @print(i8* %name_ptr)
-  ret i32 undef
+  call i32 @print(i8* %name_ptr)
+  %rest_stack_ptr_ptr = getelementptr %stack* %s, i64 0, i32 2
+  %rest_stack_ptr = load %stack** %rest_stack_ptr_ptr
+  %ret_name = tail call i32 @print_stack(%stack* %rest_stack_ptr)
+  ret i32 %ret_name
 e_is_stack:
   %str_lbracket = getelementptr [2 x i8]* @str_lbracket, i64 0, i64 0
   call i32 @print(i8* %str_lbracket)
@@ -182,51 +263,51 @@ define i1 @is_do(i8* %n) {
   ret i1 %ret
 }
 
-define %token @tok_from_tag(%tag %tok_tag) {
-  %tok = insertvalue %token undef, %tag %tok_tag, 0
-  ret %token %tok
-}
+; define %token @tok_from_tag(%tag %tok_tag) {
+;   %tok = insertvalue %token undef, %tag %tok_tag, 0
+;   ret %token %tok
+; }
 
-define %token @name_token(%name* %n) {
-  %tok_tag = load %tag* @tok_tag_name
-  %tok_with_tag = insertvalue %token undef, %tag %tok_tag, 0
-  %tok_with_name = insertvalue %token %tok_with_tag, %name* %n, 1
-  ret %token %tok_with_name
-}
+; define %token @name_token(%name* %n) {
+;   %tok_tag = load %tag* @tok_tag_name
+;   %tok_with_tag = insertvalue %token undef, %tag %tok_tag, 0
+;   %tok_with_name = insertvalue %token %tok_with_tag, %name* %n, 1
+;   ret %token %tok_with_name
+; }
 
-define void @print_token(%token %tok) {
-  %tag_name = load %tag* @tok_tag_name
-  %tag_bracket_open = load %tag* @tok_tag_bracket_open
-  %tag_bracket_close = load %tag* @tok_tag_bracket_close
+; define void @print_token(%token %tok) {
+;   %tag_name = load %tag* @tok_tag_name
+;   %tag_bracket_open = load %tag* @tok_tag_bracket_open
+;   %tag_bracket_close = load %tag* @tok_tag_bracket_close
 
-  %tok_tag = extractvalue %token %tok, 0
+;   %tok_tag = extractvalue %token %tok, 0
 
-  %is_name = icmp eq %tag %tok_tag, %tag_name
-  br i1 %is_name, label %name, label %else_if1
-else_if1:
-  %is_bracket_open = icmp eq %tag %tok_tag, %tag_bracket_open
-  br i1 %is_bracket_open, label %bracket_open, label %else_if2
-else_if2:
-  %is_bracket_close = icmp eq %tag %tok_tag, %tag_bracket_close
-  br i1 %is_bracket_close, label %bracket_close, label %error
+;   %is_name = icmp eq %tag %tok_tag, %tag_name
+;   br i1 %is_name, label %name, label %else_if1
+; else_if1:
+;   %is_bracket_open = icmp eq %tag %tok_tag, %tag_bracket_open
+;   br i1 %is_bracket_open, label %bracket_open, label %else_if2
+; else_if2:
+;   %is_bracket_close = icmp eq %tag %tok_tag, %tag_bracket_close
+;   br i1 %is_bracket_close, label %bracket_close, label %error
 
-name:
-  %found_name = getelementptr [13 x i8]* @found_name, i64 0, i64 0
-  call i32 @puts(i8* %found_name)
-  ret void
-bracket_open:
-  %found_open = getelementptr [9 x i8]* @found_open, i64 0, i64 0
-  call i32 @puts(i8* %found_open)
-  ret void
-bracket_close:
-  %found_close = getelementptr [9 x i8]* @found_close, i64 0, i64 0
-  call i32 @puts(i8* %found_close)
-  ret void
-error:
-  %found_error = getelementptr [7 x i8]* @found_error, i64 0, i64 0
-  call i32 @puts(i8* %found_error)
-  ret void
-}
+; name:
+;   %found_name = getelementptr [13 x i8]* @found_name, i64 0, i64 0
+;   call i32 @puts(i8* %found_name)
+;   ret void
+; bracket_open:
+;   %found_open = getelementptr [9 x i8]* @found_open, i64 0, i64 0
+;   call i32 @puts(i8* %found_open)
+;   ret void
+; bracket_close:
+;   %found_close = getelementptr [9 x i8]* @found_close, i64 0, i64 0
+;   call i32 @puts(i8* %found_close)
+;   ret void
+; error:
+;   %found_error = getelementptr [7 x i8]* @found_error, i64 0, i64 0
+;   call i32 @puts(i8* %found_error)
+;   ret void
+; }
 
 ; like puts, but without newline
 define i32 @print(i8* %str) {
@@ -235,7 +316,7 @@ define i32 @print(i8* %str) {
   ret i32 %ret
 }
 
-define i32 @repl() {
+define i32 @repl2() {
   %str1 = getelementptr [3 x i8]* @printf_s, i64 0, i64 0
   %str2 = getelementptr [3 x i8]* @printf_c, i64 0, i64 0
   call i32 @strncmp(i8* %str1, i8* %str2, i32 256)
