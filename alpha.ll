@@ -335,7 +335,8 @@ dip:
   %ret_dip = tail call %stack* @eval_dip(%stack* %s)
   ret %stack* %ret_dip
 do:
-  ret %stack* undef
+  %ret_do = tail call %stack* @eval_do(%stack* %s)
+  ret %stack* %ret_do
 }
 
 define %stack* @eval_drop(%stack* %s) {
@@ -400,6 +401,32 @@ rest_nil:
   ; handle underflow
   ret %stack* undef
 }
+
+define %stack* @eval_do(%stack* %s) {
+  %is_nil_ptr = getelementptr %stack* %s, i64 0, i32 0
+  %is_nil = load i1* %is_nil_ptr
+  br i1 %is_nil, label %not_nil, label %nil
+not_nil:
+  %rest_stack_ptr_ptr = getelementptr %stack* %s, i64 0, i32 2
+  %rest = load %stack** %rest_stack_ptr_ptr
+  %e_ptr = getelementptr %stack* %s, i64 0, i32 1
+  %e = load %elem* %e_ptr
+  %e_type = extractvalue %elem %e, 0
+  br i1 %e_type, label %e_is_stack, label %e_is_name
+e_is_stack:
+  %quot = extractvalue %elem %e, 2
+  %new_stack = tail call %stack* @eval_stack(%stack* %rest, %stack* %quot)
+  ret %stack* %new_stack
+nil:
+  ; handle underflow here
+  ret %stack* undef
+e_is_name:
+  ; element should be a stack!
+  ret %stack* undef
+}
+
+; endless loop for dip:
+; [dup dup dip] [] [dup dup dip] dip
 
 define i1 @is_drop(i8* %n) {
   %keyword = getelementptr [5 x i8]* @keyword_drop, i64 0, i64 0
