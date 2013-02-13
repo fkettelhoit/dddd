@@ -16,12 +16,19 @@ define i32 @main() {
   %s = call %stack* @read(%stack* %empty_stack)
 ;  call i32 @print_stack(%stack* %empty_stack)
   call i32 @print_stack(%stack* %s)
+  call i32 @println()
 ;  call i32 @print_stack(%stack* @example_stack2)
   ; exit gracefully
   ret i32 0
 }
 
+@empty_str = constant [1 x i8] c"\00"
 
+define i32 @println() {
+  %ptr = getelementptr [1 x i8]* @empty_str, i64 0, i64 0
+  %ret = call i32 @puts(i8* %ptr)
+  ret i32 %ret
+}
 
 ;;;;;;;;;;;;;;;;; old stuff ;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -70,6 +77,12 @@ declare i32 @strcmp(i8*, i8*)
 define %elem @elem_from_name(%name* %n) {
   %e_with_tag = insertvalue %elem zeroinitializer, i1 0, 0
   %e = insertvalue %elem %e_with_tag, %name* %n, 1
+  ret %elem %e
+}
+
+define %elem @elem_from_stack(%stack* %s) {
+  %e_with_tag = insertvalue %elem zeroinitializer, i1 1, 0
+  %e = insertvalue %elem %e_with_tag, %stack* %s, 2
   ret %elem %e
 }
 
@@ -132,31 +145,28 @@ loop:
   switch i32 %char, label %otherwise
           [ i32 10, label %newline         ; 10 = '\n'
             i32 32, label %space           ; 32 = ' '
-;            i32 91, label %bracket_open    ; 91 = '['
-;            i32 93, label %bracket_close ] ; 93 = ']'
- ]
+            i32 91, label %bracket_open    ; 91 = '['
+            i32 93, label %bracket_close ] ; 93 = ']'
 newline:
-;   %no_word_yet = icmp eq i64 %idx, 0
-;   br i1 %no_word_yet, label %just_return, label %push_and_return
-; just_return:
-;   ret %stack* %old_stack
-; push_and_return:
-; ;  %read_more = phi i1 [0, %just_return], [1, %
-;   store i8 0, i8* %current_name_end ; null terminate the string
-;   %e1 = call %elem @elem_from_name(%name* %current_name)
-;   %new_stack1 = call %stack* @push_elem(%stack* %old_stack, %elem %e1)
-;   ret %stack* %new_stack1
   %r = call %stack* @push_current_word(%stack* %old_stack, %name* %current_name, i64 %idx)
   ret %stack* %r
 space:
   %new_stack = call %stack* @push_current_word(%stack* %old_stack, %name* %current_name, i64 %idx)
-;  store i8 0, i8* %current_name_end ; null terminate the string
-  ;;; I need to compare idx for 0 here -> no string yet
-;  %e = call %elem @elem_from_name(%name* %current_name)
-;  %new_stack = call %stack* @push_elem(%stack* %old_stack, %elem %e)
   %tail_ret = tail call %stack* @read(%stack* %new_stack)
   ret %stack* %tail_ret
-;  ret %stack* %new_stack
+bracket_open:
+  ; push current word (if any)
+  %stack3 = call %stack* @push_current_word(%stack* %old_stack, %name* %current_name, i64 %idx)
+  ; create a new stack and push everything until ']' on that stack
+  %empty_stack = call %stack* @new_stack()
+  %read_until_rbracket = call %stack* @read(%stack* %empty_stack)
+  ; add that stack as an element to our existing stack
+  %elem_stack = call %elem @elem_from_stack(%stack* %read_until_rbracket)
+  %stack_with_elem = call %stack* @push_elem(%stack* %stack3, %elem %elem_stack)
+  %tail_ret3 = tail call %stack* @read(%stack* %stack_with_elem)
+  ret %stack* %tail_ret3
+bracket_close:
+  br label %newline
 ; bracket_open:
 ;   %tag_bracket_open = load %tag* @tok_tag_bracket_open
 ;   %tok_bracket_open = call %token @tok_from_tag(%tag %tag_bracket_open)
@@ -204,32 +214,47 @@ push_and_return:
 @str_rbracket = constant [2 x i8] c"]\00"
 
 define i32 @print_stack(%stack* %s) {
+  %ret = tail call i32 @print_stack_with_space(%stack* %s, i1 0)
+  ret i32 %ret
+}
+
+@just_space = constant [2 x i8] c" \00"
+
+define i32 @print_stack_with_space(%stack* %s, i1 %space_delimited) {
   %is_nil_ptr = getelementptr %stack* %s, i64 0, i32 0
   %is_nil = load i1* %is_nil_ptr
   br i1 %is_nil, label %not_nil, label %nil
 nil:
   ret i32 0
 not_nil:
+  br i1 %space_delimited, label %with_space, label %continue
+with_space:
+  %just_space = getelementptr [2 x i8]* @just_space, i64 0, i64 0
+  call i32 @print(i8* %just_space)
+  br label %continue
+continue:
   %e_ptr = getelementptr %stack* %s, i64 0, i32 1
   %e = load %elem* %e_ptr
   %e_type = extractvalue %elem %e, 0
+  %rest_stack_ptr_ptr = getelementptr %stack* %s, i64 0, i32 2
+  %rest_stack_ptr = load %stack** %rest_stack_ptr_ptr
   br i1 %e_type, label %e_is_stack, label %e_is_name
 e_is_name:
   %e_name = extractvalue %elem %e, 1
   %name_ptr = getelementptr %name* %e_name, i64 0, i64 0
   call i32 @print(i8* %name_ptr)
-  %rest_stack_ptr_ptr = getelementptr %stack* %s, i64 0, i32 2
-  %rest_stack_ptr = load %stack** %rest_stack_ptr_ptr
-  %ret_name = tail call i32 @print_stack(%stack* %rest_stack_ptr)
+  %ret_name = tail call i32 @print_stack_with_space(%stack* %rest_stack_ptr, i1 1)
   ret i32 %ret_name
 e_is_stack:
   %str_lbracket = getelementptr [2 x i8]* @str_lbracket, i64 0, i64 0
   call i32 @print(i8* %str_lbracket)
   %e_stack = extractvalue %elem %e, 2
-  call i32 @print_stack(%stack* %e_stack)
+  call i32 @print_stack_with_space(%stack* %e_stack, i1 0)
   %str_rbracket = getelementptr [2 x i8]* @str_rbracket, i64 0, i64 0
   %ret_stack = call i32 @print(i8* %str_rbracket)
-  ret i32 %ret_stack
+  %ret_rest = tail call i32 @print_stack_with_space(%stack* %rest_stack_ptr, i1 1)
+;  ret i32 %ret_stack
+  ret i32 %ret_rest
 }
 
 define %stack* @eval(%stack* %s, %name* %w) {
@@ -287,52 +312,6 @@ define i1 @is_do(i8* %n) {
   %ret = icmp eq i32 %result, 0
   ret i1 %ret
 }
-
-; define %token @tok_from_tag(%tag %tok_tag) {
-;   %tok = insertvalue %token undef, %tag %tok_tag, 0
-;   ret %token %tok
-; }
-
-; define %token @name_token(%name* %n) {
-;   %tok_tag = load %tag* @tok_tag_name
-;   %tok_with_tag = insertvalue %token undef, %tag %tok_tag, 0
-;   %tok_with_name = insertvalue %token %tok_with_tag, %name* %n, 1
-;   ret %token %tok_with_name
-; }
-
-; define void @print_token(%token %tok) {
-;   %tag_name = load %tag* @tok_tag_name
-;   %tag_bracket_open = load %tag* @tok_tag_bracket_open
-;   %tag_bracket_close = load %tag* @tok_tag_bracket_close
-
-;   %tok_tag = extractvalue %token %tok, 0
-
-;   %is_name = icmp eq %tag %tok_tag, %tag_name
-;   br i1 %is_name, label %name, label %else_if1
-; else_if1:
-;   %is_bracket_open = icmp eq %tag %tok_tag, %tag_bracket_open
-;   br i1 %is_bracket_open, label %bracket_open, label %else_if2
-; else_if2:
-;   %is_bracket_close = icmp eq %tag %tok_tag, %tag_bracket_close
-;   br i1 %is_bracket_close, label %bracket_close, label %error
-
-; name:
-;   %found_name = getelementptr [13 x i8]* @found_name, i64 0, i64 0
-;   call i32 @puts(i8* %found_name)
-;   ret void
-; bracket_open:
-;   %found_open = getelementptr [9 x i8]* @found_open, i64 0, i64 0
-;   call i32 @puts(i8* %found_open)
-;   ret void
-; bracket_close:
-;   %found_close = getelementptr [9 x i8]* @found_close, i64 0, i64 0
-;   call i32 @puts(i8* %found_close)
-;   ret void
-; error:
-;   %found_error = getelementptr [7 x i8]* @found_error, i64 0, i64 0
-;   call i32 @puts(i8* %found_error)
-;   ret void
-; }
 
 ; like puts, but without newline
 define i32 @print(i8* %str) {
