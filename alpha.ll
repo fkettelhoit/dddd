@@ -3,6 +3,7 @@ declare i8* @strtok(i8*, i8*)
 declare i8* @malloc(i64)
 
 @prompt = constant [3 x i8] c"> \00"
+@indent = constant [3 x i8] c"  \00"
 @max_input = constant [256 x i8] zeroinitializer
 
 define i32 @main() {
@@ -15,7 +16,10 @@ define i32 @main() {
   %empty_stack = call %stack* @new_stack()
   %s = call %stack* @read(%stack* %empty_stack)
 ;  call i32 @print_stack(%stack* %empty_stack)
-  call i32 @print_stack(%stack* %s)
+  %s_rev = call %stack* @reverse(%stack* %s)
+  %indent = getelementptr [3 x i8]* @indent, i64 0, i64 0
+  call i32 @print(i8* %indent)
+  call i32 @print_stack(%stack* %s_rev)
   call i32 @println()
 ;  call i32 @print_stack(%stack* @example_stack2)
   ; exit gracefully
@@ -212,6 +216,32 @@ push_and_return:
 
 @str_lbracket = constant [2 x i8] c"[\00"
 @str_rbracket = constant [2 x i8] c"]\00"
+
+%binary_stack_f = type %stack* (%stack*, %elem)
+
+define %stack* @foldl(%binary_stack_f* %f, %stack* %init, %stack* %s) {
+  %is_nil_ptr = getelementptr %stack* %s, i64 0, i32 0
+  %is_nil = load i1* %is_nil_ptr
+  br i1 %is_nil, label %not_nil, label %nil
+nil:
+  ret %stack* %init
+not_nil:
+  %e_ptr = getelementptr %stack* %s, i64 0, i32 1
+  %e = load %elem* %e_ptr
+
+  %rest_stack_ptr_ptr = getelementptr %stack* %s, i64 0, i32 2
+  %rest = load %stack** %rest_stack_ptr_ptr
+
+  %new_init = call %stack* %f(%stack* %init, %elem %e)
+  %ret = tail call %stack* @foldl(%binary_stack_f* %f, %stack* %new_init, %stack* %rest)
+  ret %stack* %ret
+}
+
+define %stack* @reverse(%stack* %s) {
+  %empty = call %stack* @new_stack()
+  %ret = tail call %stack* @foldl(%binary_stack_f* @push_elem, %stack* %empty, %stack* %s)
+  ret %stack* %ret
+}
 
 define i32 @print_stack(%stack* %s) {
   %ret = tail call i32 @print_stack_with_space(%stack* %s, i1 0)
