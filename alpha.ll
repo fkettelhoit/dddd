@@ -136,12 +136,24 @@ loop:
 ;            i32 93, label %bracket_close ] ; 93 = ']'
  ]
 newline:
-  ret %stack* %old_stack
+;   %no_word_yet = icmp eq i64 %idx, 0
+;   br i1 %no_word_yet, label %just_return, label %push_and_return
+; just_return:
+;   ret %stack* %old_stack
+; push_and_return:
+; ;  %read_more = phi i1 [0, %just_return], [1, %
+;   store i8 0, i8* %current_name_end ; null terminate the string
+;   %e1 = call %elem @elem_from_name(%name* %current_name)
+;   %new_stack1 = call %stack* @push_elem(%stack* %old_stack, %elem %e1)
+;   ret %stack* %new_stack1
+  %r = call %stack* @push_current_word(%stack* %old_stack, %name* %current_name, i64 %idx)
+  ret %stack* %r
 space:
-  store i8 0, i8* %current_name_end ; null terminate the string
+  %new_stack = call %stack* @push_current_word(%stack* %old_stack, %name* %current_name, i64 %idx)
+;  store i8 0, i8* %current_name_end ; null terminate the string
   ;;; I need to compare idx for 0 here -> no string yet
-  %e = call %elem @elem_from_name(%name* %current_name)
-  %new_stack = call %stack* @push_elem(%stack* %old_stack, %elem %e)
+;  %e = call %elem @elem_from_name(%name* %current_name)
+;  %new_stack = call %stack* @push_elem(%stack* %old_stack, %elem %e)
   %tail_ret = tail call %stack* @read(%stack* %new_stack)
   ret %stack* %tail_ret
 ;  ret %stack* %new_stack
@@ -157,6 +169,19 @@ otherwise:
   %char_as_i8 = trunc i32 %char to i8
   store i8 %char_as_i8, i8* %current_name_end ; append char to current_name
   br label %loop
+}
+
+define %stack* @push_current_word(%stack* %old_stack, %name* %word, i64 %idx) {
+  %no_word_yet = icmp eq i64 %idx, 0
+  br i1 %no_word_yet, label %just_return, label %push_and_return
+just_return:
+  ret %stack* %old_stack
+push_and_return:
+  %current_name_end = getelementptr %name* %word, i64 0, i64 %idx
+  store i8 0, i8* %current_name_end ; null terminate the string
+  %e = call %elem @elem_from_name(%name* %word)
+  %new_stack = call %stack* @push_elem(%stack* %old_stack, %elem %e)
+  ret %stack* %new_stack
 }
 
 %stack_ptr = type i32
