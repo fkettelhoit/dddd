@@ -93,11 +93,11 @@ e_is_name:
 
 define %Stack* @push_copy_elem(%Stack* %s, %Elem %e) {
   %e_copy = call %Elem @copy_elem(%Elem %e)
-  %ret = tail call %Stack* @push_elem(%Stack* %s, %Elem %e_copy)
+  %ret = tail call %Stack* @push(%Stack* %s, %Elem %e_copy)
   ret %Stack* %ret
 }
 
-define %Stack* @push_elem_rev(%Stack* %s, %Elem %e) {
+define %Stack* @push_rev(%Stack* %s, %Elem %e) {
   %e_type = extractvalue %Elem %e, 0
   br i1 %e_type, label %e_is_stack, label %e_is_name
 e_is_stack:
@@ -114,11 +114,11 @@ e_is_name:
 ;  ret %Elem %e_new_name
 return:
   %e_new = phi %Elem [%e_new_stack, %e_is_stack], [%e_new_name, %e_is_name]
-  %new_stack = call %Stack* @push_elem(%Stack* %s, %Elem %e_new)
+  %new_stack = call %Stack* @push(%Stack* %s, %Elem %e_new)
   ret %Stack* %new_stack
 }
 
-define %Stack* @push_elem(%Stack* %old_stack, %Elem %e) {
+define %Stack* @push(%Stack* %old_stack, %Elem %e) {
   %s_with_elem = insertvalue %Stack {%Elem undef, %Stack* undef}, %Elem %e, 0
   %new_stack = insertvalue %Stack %s_with_elem, %Stack* %old_stack, 1
   %ptr = call %Stack* @malloc_stack()
@@ -127,20 +127,20 @@ define %Stack* @push_elem(%Stack* %old_stack, %Elem %e) {
 }
 
 define %Stack* @reverse_copy(%Stack* %s) {
-  %empty = call %Stack* @new_stack()
+  %empty = call %Stack* @empty()
   %s_rev = call %Stack* @foldl(%Binary_stack_f* @push_copy_elem, %Stack* %empty, %Stack* %s)
   ret %Stack* %s_rev
 }
 
 define %Stack* @reverse(%Stack* %s) {
-  %empty = call %Stack* @new_stack()
-  %ret = tail call %Stack* @foldl(%Binary_stack_f* @push_elem, %Stack* %empty, %Stack* %s)
+  %empty = call %Stack* @empty()
+  %ret = tail call %Stack* @foldl(%Binary_stack_f* @push, %Stack* %empty, %Stack* %s)
   ret %Stack* %ret
 }
 
 define %Stack* @reverse_rec(%Stack* %s) {
-  %empty = call %Stack* @new_stack()
-  %ret = tail call %Stack* @foldl(%Binary_stack_f* @push_elem_rev, %Stack* %empty, %Stack* %s)
+  %empty = call %Stack* @empty()
+  %ret = tail call %Stack* @foldl(%Binary_stack_f* @push_rev, %Stack* %empty, %Stack* %s)
   ret %Stack* %ret
 }
 
@@ -186,7 +186,7 @@ not_nil:
 }
 
 
-define %Stack* @new_stack() {
+define %Stack* @empty() {
   ; %ptr = call %Stack* @malloc_stack()
   ; store %Stack {i1 0, %Elem undef, %Stack* undef}, %Stack* %ptr
   ret %Stack* null

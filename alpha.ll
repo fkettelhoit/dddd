@@ -5,16 +5,34 @@ declare i8* @strncpy(i8*, i8*, i32)
 ;;; types
 
 %name = type [256 x i8]
-%Stack = type {%Elem, %Stack*}
+;%Stack = type {%Elem, %Stack*}
+
 %Elem = type {i1, %name*, %Stack*}
 %Binary_stack_f = type %Stack* (%Stack*, %Elem)
+
+;;; Stack type ;;;
+
+%Stack = type opaque
+
+declare i1 @is_nil(%Stack*)
+declare %Elem @first(%Stack*)
+declare %Stack* @rest(%Stack*)
+declare %Stack* @empty()
+declare %Stack* @push(%Stack*, %Elem)
+
+declare %Stack* @reverse_rec(%Stack*)
+declare %Elem @elem_from_name(%name*)
+declare %Elem @elem_from_stack(%Stack*)
+declare %Stack* @foldl(%Binary_stack_f*, %Stack*, %Stack*)
+
+;;;
 
 @prompt = constant [3 x i8] c"> \00"
 @indent = constant [3 x i8] c"  \00"
 
 define i32 @main() {
 start:
-  %init = call %Stack* @new_stack()
+  %init = call %Stack* @empty()
   br label %loop
 loop:
   %stack_old = phi %Stack* [%init, %start], [%stack_new, %loop]
@@ -62,16 +80,6 @@ declare i32 @strcmp(i8*, i8*)
 @keyword_dip = constant [4 x i8] c"dip\00"
 @keyword_do = constant [3 x i8] c"do\00"
 
-declare i1 @is_nil(%Stack*)
-declare %Elem @first(%Stack*)
-declare %Stack* @rest(%Stack*)
-declare %Stack* @push_elem(%Stack*, %Elem)
-declare %Stack* @reverse(%Stack*)
-declare %Stack* @reverse_rec(%Stack*)
-declare %Elem @elem_from_name(%name*)
-declare %Elem @elem_from_stack(%Stack*)
-declare %Stack* @foldl(%Binary_stack_f*, %Stack*, %Stack*)
-declare %Stack* @new_stack()
 
 define %name* @copy_name(%name* %n) {
   %n_copy = call %name* @malloc_name()
@@ -80,16 +88,6 @@ define %name* @copy_name(%name* %n) {
   call i8* @strncpy(i8* %n_copy_ptr, i8* %n_ptr, i32 256)
   ret %name* %n_copy
 }
-
-; define %Stack* @copy_stack(%Stack* %s) {
-;   %is_nil = call i1 @is_nil(%Stack* %s)
-;   br i1 %is_nil, label %nil, label %not_nil
-; nil:
-;   %empty = call %Stack* @new_stack()
-;   ret %Stack* %empty
-; not_nil:
-;   ret %Stack* undef
-; }
 
 define %name* @malloc_name() {
   %sizeof_one = getelementptr %name* null, i64 1
@@ -106,7 +104,7 @@ define void @free_name(%name* %n) {
 }
 
 define %Stack* @read() {
-  %empty = call %Stack* @new_stack()
+  %empty = call %Stack* @empty()
   %ret = tail call %Stack* @read_(%Stack* %empty)
   ret %Stack* %ret
 }
@@ -140,11 +138,11 @@ bracket_open:
   ; push current word (if any)
   %stack3 = call %Stack* @push_current_word(%Stack* %old_stack, %name* %current_name, i64 %idx)
   ; create a new stack and push everything until ']' on that stack
-;  %empty_stack = call %Stack* @new_stack()
+;  %empty_stack = call %Stack* @empty()
   %read_until_rbracket = call %Stack* @read()
   ; add that stack as an element to our existing stack
   %elem_stack = call %Elem @elem_from_stack(%Stack* %read_until_rbracket)
-  %stack_with_elem = call %Stack* @push_elem(%Stack* %stack3, %Elem %elem_stack)
+  %stack_with_elem = call %Stack* @push(%Stack* %stack3, %Elem %elem_stack)
   %tail_ret3 = tail call %Stack* @read_(%Stack* %stack_with_elem)
   ret %Stack* %tail_ret3
 bracket_close:
@@ -172,7 +170,7 @@ push_and_return:
   %current_name_end = getelementptr %name* %word, i64 0, i64 %idx
   store i8 0, i8* %current_name_end ; null terminate the string
   %e = call %Elem @elem_from_name(%name* %word)
-  %new_stack = call %Stack* @push_elem(%Stack* %old_stack, %Elem %e)
+  %new_stack = call %Stack* @push(%Stack* %old_stack, %Elem %e)
   ret %Stack* %new_stack
 }
 
@@ -251,10 +249,10 @@ e_is_name:
   ret %Stack* %stack_new
 e_is_stack:
   %e_stack = extractvalue %Elem %e, 2
-  %e_stack_rev = call %Stack* @reverse(%Stack* %e_stack)
+  %e_stack_rev = call %Stack* @reverse_rec(%Stack* %e_stack)
   %e_rev = call %Elem @elem_from_stack(%Stack* %e_stack_rev)
-  %stack_with_stack = call %Stack* @push_elem(%Stack* %old, %Elem %e_rev)
-  ; %stack_with_stack = call %Stack* @push_elem(%Stack* %old, %Elem %e)
+  %stack_with_stack = call %Stack* @push(%Stack* %old, %Elem %e_rev)
+  ; %stack_with_stack = call %Stack* @push(%Stack* %old, %Elem %e)
   ret %Stack* %stack_with_stack
 }
 
@@ -315,7 +313,7 @@ not_nil:
   ; %e = load %Elem* %e_ptr
   %e = call %Elem @first(%Stack* %s)
 ;  %e_copy = call %Elem @copy_elem(%Elem %e)
-  %new_stack = tail call %Stack* @push_elem(%Stack* %s, %Elem %e)
+  %new_stack = tail call %Stack* @push(%Stack* %s, %Elem %e)
   ret %Stack* %new_stack
 }
 
@@ -348,7 +346,7 @@ rest_not_nil:
   %e_dipped = call %Elem @first(%Stack* %rest)
 
   %eval_quot = call %Stack* @eval_stack(%Stack* %remaining, %Stack* %quot)
-  %new_stack = tail call %Stack* @push_elem(%Stack* %eval_quot, %Elem %e_dipped)
+  %new_stack = tail call %Stack* @push(%Stack* %eval_quot, %Elem %e_dipped)
   ret %Stack* %new_stack
 nil:
   ; handle underflow here
