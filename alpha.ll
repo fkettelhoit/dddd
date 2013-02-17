@@ -2,7 +2,7 @@ declare i8* @malloc(i64)
 declare void @free(i8*)
 declare i8* @strncpy(i8*, i8*, i32)
 
-%binary_stack_f = type %Stack* (%Stack*, %Elem)
+%Binary_stack_f = type %Stack* (%Stack*, %Elem)
 
 @prompt = constant [3 x i8] c"> \00"
 @indent = constant [3 x i8] c"  \00"
@@ -156,13 +156,13 @@ define %Stack* @push_copy_elem(%Stack* %s, %Elem %e) {
 
 define %Stack* @reverse_copy(%Stack* %s) {
   %empty = call %Stack* @new_stack()
-  %s_rev = call %Stack* @foldl(%binary_stack_f* @push_copy_elem, %Stack* %empty, %Stack* %s)
+  %s_rev = call %Stack* @foldl(%Binary_stack_f* @push_copy_elem, %Stack* %empty, %Stack* %s)
   ret %Stack* %s_rev
 }
 
 define %Stack* @reverse(%Stack* %s) {
   %empty = call %Stack* @new_stack()
-  %ret = tail call %Stack* @foldl(%binary_stack_f* @push_elem, %Stack* %empty, %Stack* %s)
+  %ret = tail call %Stack* @foldl(%Binary_stack_f* @push_elem, %Stack* %empty, %Stack* %s)
   ret %Stack* %ret
 }
 
@@ -301,7 +301,7 @@ push_and_return:
 
 
 
-define %Stack* @foldl(%binary_stack_f* %f, %Stack* %init, %Stack* %s) {
+define %Stack* @foldl(%Binary_stack_f* %f, %Stack* %init, %Stack* %s) {
   %is_nil_ptr = getelementptr %Stack* %s, i64 0, i32 0
   %is_nil = load i1* %is_nil_ptr
   br i1 %is_nil, label %not_nil, label %nil
@@ -315,7 +315,7 @@ not_nil:
   %rest = load %Stack** %rest_stack_ptr_ptr
 
   %new_init = call %Stack* %f(%Stack* %init, %Elem %e)
-  %ret = tail call %Stack* @foldl(%binary_stack_f* %f, %Stack* %new_init, %Stack* %rest)
+  %ret = tail call %Stack* @foldl(%Binary_stack_f* %f, %Stack* %new_init, %Stack* %rest)
   ret %Stack* %ret
 }
 
@@ -366,7 +366,7 @@ e_is_stack:
 }
 
 define %Stack* @eval_stack(%Stack* %init, %Stack* %ops) {
-  %new = tail call %Stack* @foldl(%binary_stack_f* @eval_elem, %Stack* %init, %Stack* %ops)
+  %new = tail call %Stack* @foldl(%Binary_stack_f* @eval_elem, %Stack* %init, %Stack* %ops)
   ret %Stack* %new
 }
 
