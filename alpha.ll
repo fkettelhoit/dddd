@@ -2,29 +2,29 @@ declare i8* @malloc(i64)
 declare void @free(i8*)
 declare i8* @strncpy(i8*, i8*, i32)
 
-%binary_stack_f = type %stack* (%stack*, %elem)
+%binary_stack_f = type %Stack* (%Stack*, %Elem)
 
 @prompt = constant [3 x i8] c"> \00"
 @indent = constant [3 x i8] c"  \00"
 
 define i32 @main() {
 start:
-  %init = call %stack* @new_stack()
+  %init = call %Stack* @new_stack()
   br label %loop
 loop:
-  %stack_old = phi %stack* [%init, %start], [%stack_new, %loop]
+  %stack_old = phi %Stack* [%init, %start], [%stack_new, %loop]
   ; read
   %prompt = getelementptr [3 x i8]* @prompt, i64 0, i64 0
   call i32 @print(i8* %prompt)
-  %ops_rev = call %stack* @read()
-  %ops = call %stack* @reverse(%stack* %ops_rev)
+  %ops_rev = call %Stack* @read()
+  %ops = call %Stack* @reverse(%Stack* %ops_rev)
   ; eval
-  %stack_new = call %stack* @eval_stack(%stack* %stack_old, %stack* %ops)
+  %stack_new = call %Stack* @eval_stack(%Stack* %stack_old, %Stack* %ops)
   ; print
-  %stack_new_rev = call %stack* @reverse(%stack* %stack_new)
+  %stack_new_rev = call %Stack* @reverse(%Stack* %stack_new)
   %indent = getelementptr [3 x i8]* @indent, i64 0, i64 0
   call i32 @print(i8* %indent)
-  call i32 @print_stack(%stack* %stack_new_rev)
+  call i32 @print_stack(%Stack* %stack_new_rev)
   call i32 @println()
   ; loop
   br label %loop
@@ -59,85 +59,85 @@ declare i32 @strcmp(i8*, i8*)
 ;;; types
 
 %name = type [256 x i8]
-%stack = type {i1, %elem, %stack*}
-%elem = type {i1, %name*, %stack*}
+%Stack = type {i1, %Elem, %Stack*}
+%Elem = type {i1, %name*, %Stack*}
 
-define %elem @elem_from_name(%name* %n) {
-  %e_with_tag = insertvalue %elem zeroinitializer, i1 0, 0
-  %e = insertvalue %elem %e_with_tag, %name* %n, 1
-  ret %elem %e
+define %Elem @elem_from_name(%name* %n) {
+  %e_with_tag = insertvalue %Elem zeroinitializer, i1 0, 0
+  %e = insertvalue %Elem %e_with_tag, %name* %n, 1
+  ret %Elem %e
 }
 
-define %elem @elem_from_stack(%stack* %s) {
-  %e_with_tag = insertvalue %elem zeroinitializer, i1 1, 0
-  %e = insertvalue %elem %e_with_tag, %stack* %s, 2
-  ret %elem %e
+define %Elem @elem_from_stack(%Stack* %s) {
+  %e_with_tag = insertvalue %Elem zeroinitializer, i1 1, 0
+  %e = insertvalue %Elem %e_with_tag, %Stack* %s, 2
+  ret %Elem %e
 }
 
-define %stack* @malloc_stack() {
-  %one_Stack_long = getelementptr %stack* null, i64 1
-  %sizeof_Stack = ptrtoint %stack* %one_Stack_long to i64
+define %Stack* @malloc_stack() {
+  %one_Stack_long = getelementptr %Stack* null, i64 1
+  %sizeof_Stack = ptrtoint %Stack* %one_Stack_long to i64
   %void_ptr = call i8* @malloc(i64 %sizeof_Stack)
-  %ptr = bitcast i8* %void_ptr to %stack*
-  ret %stack* %ptr
+  %ptr = bitcast i8* %void_ptr to %Stack*
+  ret %Stack* %ptr
 }
 
-define void @free_stack(%stack* %s) {
-  %e_ptr = getelementptr %stack* %s, i64 0, i32 1
-  %e = load %elem* %e_ptr
-  call void @free_elem(%elem %e)
-  %ptr = bitcast %stack* %s to i8*
+define void @free_stack(%Stack* %s) {
+  %e_ptr = getelementptr %Stack* %s, i64 0, i32 1
+  %e = load %Elem* %e_ptr
+  call void @free_elem(%Elem %e)
+  %ptr = bitcast %Stack* %s to i8*
   call void @free(i8* %ptr)
   ret void
 }
 
-define i1 @is_nil(%stack* %s) {
-  %is_not_nil_ptr = getelementptr %stack* %s, i64 0, i32 0
+define i1 @is_nil(%Stack* %s) {
+  %is_not_nil_ptr = getelementptr %Stack* %s, i64 0, i32 0
   %is_not_nil = load i1* %is_not_nil_ptr
   %is_nil = xor i1 %is_not_nil, 1
   ret i1 %is_nil
 }
 
-define void @free_stack_rec(%stack* %s) {
-  %is_nil_ptr = getelementptr %stack* %s, i64 0, i32 0
+define void @free_stack_rec(%Stack* %s) {
+  %is_nil_ptr = getelementptr %Stack* %s, i64 0, i32 0
   %is_nil = load i1* %is_nil_ptr
   br i1 %is_nil, label %not_nil, label %nil
 nil:
   ret void
 not_nil:
-  %rest_ptr_ptr = getelementptr %stack* %s, i64 0, i32 2
-  %rest_ptr = load %stack** %rest_ptr_ptr
-  call void @free_stack_rec(%stack* %rest_ptr)
-  call void @free_stack(%stack* %s)
+  %rest_ptr_ptr = getelementptr %Stack* %s, i64 0, i32 2
+  %rest_ptr = load %Stack** %rest_ptr_ptr
+  call void @free_stack_rec(%Stack* %rest_ptr)
+  call void @free_stack(%Stack* %s)
   ret void
 }
 
-define void @free_elem(%elem %e) {
-  %e_type = extractvalue %elem %e, 0
+define void @free_elem(%Elem %e) {
+  %e_type = extractvalue %Elem %e, 0
   br i1 %e_type, label %e_is_stack, label %e_is_name
 e_is_stack:
-  %e_stack = extractvalue %elem %e, 2
-  call void @free_stack_rec(%stack* %e_stack)
+  %e_stack = extractvalue %Elem %e, 2
+  call void @free_stack_rec(%Stack* %e_stack)
   ret void
 e_is_name:
-  %e_name = extractvalue %elem %e, 1
+  %e_name = extractvalue %Elem %e, 1
   call void @free_name(%name* %e_name)
   ret void
 }
 
-define %elem @copy_elem(%elem %e) {
-  %e_type = extractvalue %elem %e, 0
+define %Elem @copy_elem(%Elem %e) {
+  %e_type = extractvalue %Elem %e, 0
   br i1 %e_type, label %e_is_stack, label %e_is_name
 e_is_stack:
-  %e_stack = extractvalue %elem %e, 2
-  %stack_copy = call %stack* @copy_stack(%stack* %e_stack)
-  %e_new_stack = call %elem @elem_from_stack(%stack* %stack_copy)
-  ret %elem %e_new_stack
+  %e_stack = extractvalue %Elem %e, 2
+  %stack_copy = call %Stack* @copy_stack(%Stack* %e_stack)
+  %e_new_stack = call %Elem @elem_from_stack(%Stack* %stack_copy)
+  ret %Elem %e_new_stack
 e_is_name:
-  %e_name = extractvalue %elem %e, 1
+  %e_name = extractvalue %Elem %e, 1
   %name_copy = call %name* @copy_name(%name* %e_name)
-  %e_new_name = call %elem @elem_from_name(%name* %name_copy)
-  ret %elem %e_new_name
+  %e_new_name = call %Elem @elem_from_name(%name* %name_copy)
+  ret %Elem %e_new_name
 }
 
 define %name* @copy_name(%name* %n) {
@@ -148,59 +148,59 @@ define %name* @copy_name(%name* %n) {
   ret %name* %n_copy
 }
 
-define %stack* @push_copy_elem(%stack* %s, %elem %e) {
-  %e_copy = call %elem @copy_elem(%elem %e)
-  %ret = tail call %stack* @push_elem(%stack* %s, %elem %e_copy)
-  ret %stack* %ret
+define %Stack* @push_copy_elem(%Stack* %s, %Elem %e) {
+  %e_copy = call %Elem @copy_elem(%Elem %e)
+  %ret = tail call %Stack* @push_elem(%Stack* %s, %Elem %e_copy)
+  ret %Stack* %ret
 }
 
-define %stack* @reverse_copy(%stack* %s) {
-  %empty = call %stack* @new_stack()
-  %s_rev = call %stack* @foldl(%binary_stack_f* @push_copy_elem, %stack* %empty, %stack* %s)
-  ret %stack* %s_rev
+define %Stack* @reverse_copy(%Stack* %s) {
+  %empty = call %Stack* @new_stack()
+  %s_rev = call %Stack* @foldl(%binary_stack_f* @push_copy_elem, %Stack* %empty, %Stack* %s)
+  ret %Stack* %s_rev
 }
 
-define %stack* @reverse(%stack* %s) {
-  %empty = call %stack* @new_stack()
-  %ret = tail call %stack* @foldl(%binary_stack_f* @push_elem, %stack* %empty, %stack* %s)
-  ret %stack* %ret
+define %Stack* @reverse(%Stack* %s) {
+  %empty = call %Stack* @new_stack()
+  %ret = tail call %Stack* @foldl(%binary_stack_f* @push_elem, %Stack* %empty, %Stack* %s)
+  ret %Stack* %ret
 }
 
-define %stack* @copy_stack(%stack* %s) {
-  %s_rev = call %stack* @reverse_copy(%stack* %s)
-  %s_rev_rev = call %stack* @reverse_copy(%stack* %s_rev)
-  call void @free_stack_rec(%stack* %s_rev)
-  ret %stack* %s_rev_rev
+define %Stack* @copy_stack(%Stack* %s) {
+  %s_rev = call %Stack* @reverse_copy(%Stack* %s)
+  %s_rev_rev = call %Stack* @reverse_copy(%Stack* %s_rev)
+  call void @free_stack_rec(%Stack* %s_rev)
+  ret %Stack* %s_rev_rev
 }
 
-; define %stack* @copy_stack(%stack* %s) {
-;   %is_nil = call i1 @is_nil(%stack* %s)
+; define %Stack* @copy_stack(%Stack* %s) {
+;   %is_nil = call i1 @is_nil(%Stack* %s)
 ;   br i1 %is_nil, label %nil, label %not_nil
 ; nil:
-;   %empty = call %stack* @new_stack()
-;   ret %stack* %empty
+;   %empty = call %Stack* @new_stack()
+;   ret %Stack* %empty
 ; not_nil:
-;   ret %stack* undef
+;   ret %Stack* undef
 ; }
 
-define %stack* @push_elem(%stack* %old_stack, %elem %e) {
-  %s_with_elem = insertvalue %stack {i1 1, %elem undef, %stack* undef}, %elem %e, 1
-  %new_stack = insertvalue %stack %s_with_elem, %stack* %old_stack, 2
-  %ptr = call %stack* @malloc_stack()
-  store %stack %new_stack, %stack* %ptr
-  ret %stack* %ptr
+define %Stack* @push_elem(%Stack* %old_stack, %Elem %e) {
+  %s_with_elem = insertvalue %Stack {i1 1, %Elem undef, %Stack* undef}, %Elem %e, 1
+  %new_stack = insertvalue %Stack %s_with_elem, %Stack* %old_stack, 2
+  %ptr = call %Stack* @malloc_stack()
+  store %Stack %new_stack, %Stack* %ptr
+  ret %Stack* %ptr
 }
 
-@nil_stack = constant %stack {i1 0, %elem undef, %stack* undef}
+@nil_stack = constant %Stack {i1 0, %Elem undef, %Stack* undef}
 
-define %stack* @new_stack2() {
-  ret %stack* @nil_stack
+define %Stack* @new_stack2() {
+  ret %Stack* @nil_stack
 }
 
-define %stack* @new_stack() {
-  %ptr = call %stack* @malloc_stack()
-  store %stack {i1 0, %elem undef, %stack* undef}, %stack* %ptr
-  ret %stack* %ptr
+define %Stack* @new_stack() {
+  %ptr = call %Stack* @malloc_stack()
+  store %Stack {i1 0, %Elem undef, %Stack* undef}, %Stack* %ptr
+  ret %Stack* %ptr
 }
 
 define %name* @malloc_name() {
@@ -217,13 +217,13 @@ define void @free_name(%name* %n) {
   ret void
 }
 
-define %stack* @read() {
-  %empty = call %stack* @new_stack()
-  %ret = tail call %stack* @read_(%stack* %empty)
-  ret %stack* %ret
+define %Stack* @read() {
+  %empty = call %Stack* @new_stack()
+  %ret = tail call %Stack* @read_(%Stack* %empty)
+  ret %Stack* %ret
 }
 
-define %stack* @read_(%stack* %old_stack) {
+define %Stack* @read_(%Stack* %old_stack) {
 loop_header:
 ;  %current_name = alloca %name
   %current_name = call %name* @malloc_name()
@@ -242,23 +242,23 @@ loop:
             i32 91, label %bracket_open    ; 91 = '['
             i32 93, label %bracket_close ] ; 93 = ']'
 newline:
-  %r = call %stack* @push_current_word(%stack* %old_stack, %name* %current_name, i64 %idx)
-  ret %stack* %r
+  %r = call %Stack* @push_current_word(%Stack* %old_stack, %name* %current_name, i64 %idx)
+  ret %Stack* %r
 space:
-  %new_stack = call %stack* @push_current_word(%stack* %old_stack, %name* %current_name, i64 %idx)
-  %tail_ret = tail call %stack* @read_(%stack* %new_stack)
-  ret %stack* %tail_ret
+  %new_stack = call %Stack* @push_current_word(%Stack* %old_stack, %name* %current_name, i64 %idx)
+  %tail_ret = tail call %Stack* @read_(%Stack* %new_stack)
+  ret %Stack* %tail_ret
 bracket_open:
   ; push current word (if any)
-  %stack3 = call %stack* @push_current_word(%stack* %old_stack, %name* %current_name, i64 %idx)
+  %stack3 = call %Stack* @push_current_word(%Stack* %old_stack, %name* %current_name, i64 %idx)
   ; create a new stack and push everything until ']' on that stack
-;  %empty_stack = call %stack* @new_stack()
-  %read_until_rbracket = call %stack* @read()
+;  %empty_stack = call %Stack* @new_stack()
+  %read_until_rbracket = call %Stack* @read()
   ; add that stack as an element to our existing stack
-  %elem_stack = call %elem @elem_from_stack(%stack* %read_until_rbracket)
-  %stack_with_elem = call %stack* @push_elem(%stack* %stack3, %elem %elem_stack)
-  %tail_ret3 = tail call %stack* @read_(%stack* %stack_with_elem)
-  ret %stack* %tail_ret3
+  %elem_stack = call %Elem @elem_from_stack(%Stack* %read_until_rbracket)
+  %stack_with_elem = call %Stack* @push_elem(%Stack* %stack3, %Elem %elem_stack)
+  %tail_ret3 = tail call %Stack* @read_(%Stack* %stack_with_elem)
+  ret %Stack* %tail_ret3
 bracket_close:
   br label %newline
 ; bracket_open:
@@ -275,17 +275,17 @@ otherwise:
   br label %loop
 }
 
-define %stack* @push_current_word(%stack* %old_stack, %name* %word, i64 %idx) {
+define %Stack* @push_current_word(%Stack* %old_stack, %name* %word, i64 %idx) {
   %no_word_yet = icmp eq i64 %idx, 0
   br i1 %no_word_yet, label %just_return, label %push_and_return
 just_return:
-  ret %stack* %old_stack
+  ret %Stack* %old_stack
 push_and_return:
   %current_name_end = getelementptr %name* %word, i64 0, i64 %idx
   store i8 0, i8* %current_name_end ; null terminate the string
-  %e = call %elem @elem_from_name(%name* %word)
-  %new_stack = call %stack* @push_elem(%stack* %old_stack, %elem %e)
-  ret %stack* %new_stack
+  %e = call %Elem @elem_from_name(%name* %word)
+  %new_stack = call %Stack* @push_elem(%Stack* %old_stack, %Elem %e)
+  ret %Stack* %new_stack
 }
 
 @name_drop = constant %name c"drop\00                                                                                                                                                                                                                                                          \00"
@@ -293,43 +293,43 @@ push_and_return:
 @name_dip = constant %name c"dip\00                                                                                                                                                                                                                                                           \00"
 @name_do = constant %name c"do\00                                                                                                                                                                                                                                                            \00"
 
-@example_stack = constant %stack {i1 1, %elem {i1 0, %name* @name_drop, %stack* @nil_stack}, %stack* @nil_stack}
-@example_stack2 = constant %stack {i1 1, %elem {i1 0, %name* @name_dup, %stack* @nil_stack}, %stack* @example_stack}
+@example_stack = constant %Stack {i1 1, %Elem {i1 0, %name* @name_drop, %Stack* @nil_stack}, %Stack* @nil_stack}
+@example_stack2 = constant %Stack {i1 1, %Elem {i1 0, %name* @name_dup, %Stack* @nil_stack}, %Stack* @example_stack}
 
 @str_lbracket = constant [2 x i8] c"[\00"
 @str_rbracket = constant [2 x i8] c"]\00"
 
 
 
-define %stack* @foldl(%binary_stack_f* %f, %stack* %init, %stack* %s) {
-  %is_nil_ptr = getelementptr %stack* %s, i64 0, i32 0
+define %Stack* @foldl(%binary_stack_f* %f, %Stack* %init, %Stack* %s) {
+  %is_nil_ptr = getelementptr %Stack* %s, i64 0, i32 0
   %is_nil = load i1* %is_nil_ptr
   br i1 %is_nil, label %not_nil, label %nil
 nil:
-  ret %stack* %init
+  ret %Stack* %init
 not_nil:
-  %e_ptr = getelementptr %stack* %s, i64 0, i32 1
-  %e = load %elem* %e_ptr
+  %e_ptr = getelementptr %Stack* %s, i64 0, i32 1
+  %e = load %Elem* %e_ptr
 
-  %rest_stack_ptr_ptr = getelementptr %stack* %s, i64 0, i32 2
-  %rest = load %stack** %rest_stack_ptr_ptr
+  %rest_stack_ptr_ptr = getelementptr %Stack* %s, i64 0, i32 2
+  %rest = load %Stack** %rest_stack_ptr_ptr
 
-  %new_init = call %stack* %f(%stack* %init, %elem %e)
-  %ret = tail call %stack* @foldl(%binary_stack_f* %f, %stack* %new_init, %stack* %rest)
-  ret %stack* %ret
+  %new_init = call %Stack* %f(%Stack* %init, %Elem %e)
+  %ret = tail call %Stack* @foldl(%binary_stack_f* %f, %Stack* %new_init, %Stack* %rest)
+  ret %Stack* %ret
 }
 
 
 
-define i32 @print_stack(%stack* %s) {
-  %ret = tail call i32 @print_stack_with_space(%stack* %s, i1 0)
+define i32 @print_stack(%Stack* %s) {
+  %ret = tail call i32 @print_stack_with_space(%Stack* %s, i1 0)
   ret i32 %ret
 }
 
 @just_space = constant [2 x i8] c" \00"
 
-define i32 @print_stack_with_space(%stack* %s, i1 %space_delimited) {
-  %is_nil_ptr = getelementptr %stack* %s, i64 0, i32 0
+define i32 @print_stack_with_space(%Stack* %s, i1 %space_delimited) {
+  %is_nil_ptr = getelementptr %Stack* %s, i64 0, i32 0
   %is_nil = load i1* %is_nil_ptr
   br i1 %is_nil, label %not_nil, label %nil
 nil:
@@ -341,51 +341,51 @@ with_space:
   call i32 @print(i8* %just_space)
   br label %continue
 continue:
-  %e_ptr = getelementptr %stack* %s, i64 0, i32 1
-  %e = load %elem* %e_ptr
-  %e_type = extractvalue %elem %e, 0
-  %rest_stack_ptr_ptr = getelementptr %stack* %s, i64 0, i32 2
-  %rest_stack_ptr = load %stack** %rest_stack_ptr_ptr
+  %e_ptr = getelementptr %Stack* %s, i64 0, i32 1
+  %e = load %Elem* %e_ptr
+  %e_type = extractvalue %Elem %e, 0
+  %rest_stack_ptr_ptr = getelementptr %Stack* %s, i64 0, i32 2
+  %rest_stack_ptr = load %Stack** %rest_stack_ptr_ptr
   br i1 %e_type, label %e_is_stack, label %e_is_name
 e_is_name:
-  %e_name = extractvalue %elem %e, 1
+  %e_name = extractvalue %Elem %e, 1
   %name_ptr = getelementptr %name* %e_name, i64 0, i64 0
   call i32 @print(i8* %name_ptr)
-  %ret_name = tail call i32 @print_stack_with_space(%stack* %rest_stack_ptr, i1 1)
+  %ret_name = tail call i32 @print_stack_with_space(%Stack* %rest_stack_ptr, i1 1)
   ret i32 %ret_name
 e_is_stack:
   %str_lbracket = getelementptr [2 x i8]* @str_lbracket, i64 0, i64 0
   call i32 @print(i8* %str_lbracket)
-  %e_stack = extractvalue %elem %e, 2
-  call i32 @print_stack_with_space(%stack* %e_stack, i1 0)
+  %e_stack = extractvalue %Elem %e, 2
+  call i32 @print_stack_with_space(%Stack* %e_stack, i1 0)
   %str_rbracket = getelementptr [2 x i8]* @str_rbracket, i64 0, i64 0
   %ret_stack = call i32 @print(i8* %str_rbracket)
-  %ret_rest = tail call i32 @print_stack_with_space(%stack* %rest_stack_ptr, i1 1)
+  %ret_rest = tail call i32 @print_stack_with_space(%Stack* %rest_stack_ptr, i1 1)
 ;  ret i32 %ret_stack
   ret i32 %ret_rest
 }
 
-define %stack* @eval_stack(%stack* %init, %stack* %ops) {
-  %new = tail call %stack* @foldl(%binary_stack_f* @eval_elem, %stack* %init, %stack* %ops)
-  ret %stack* %new
+define %Stack* @eval_stack(%Stack* %init, %Stack* %ops) {
+  %new = tail call %Stack* @foldl(%binary_stack_f* @eval_elem, %Stack* %init, %Stack* %ops)
+  ret %Stack* %new
 }
 
-define %stack* @eval_elem(%stack* %old, %elem %e) {
-  %e_type = extractvalue %elem %e, 0
+define %Stack* @eval_elem(%Stack* %old, %Elem %e) {
+  %e_type = extractvalue %Elem %e, 0
   br i1 %e_type, label %e_is_stack, label %e_is_name
 e_is_name:
-  %e_name = extractvalue %elem %e, 1
-  %stack_new = call %stack* @eval(%stack* %old, %name* %e_name)
-  ret %stack* %stack_new
+  %e_name = extractvalue %Elem %e, 1
+  %stack_new = call %Stack* @eval(%Stack* %old, %name* %e_name)
+  ret %Stack* %stack_new
 e_is_stack:
-  %e_stack = extractvalue %elem %e, 2
-  %e_stack_rev = call %stack* @reverse(%stack* %e_stack)
-  %e_rev = call %elem @elem_from_stack(%stack* %e_stack_rev)
-  %stack_with_stack = call %stack* @push_elem(%stack* %old, %elem %e_rev)
-  ret %stack* %stack_with_stack
+  %e_stack = extractvalue %Elem %e, 2
+  %e_stack_rev = call %Stack* @reverse(%Stack* %e_stack)
+  %e_rev = call %Elem @elem_from_stack(%Stack* %e_stack_rev)
+  %stack_with_stack = call %Stack* @push_elem(%Stack* %old, %Elem %e_rev)
+  ret %Stack* %stack_with_stack
 }
 
-define %stack* @eval(%stack* %s, %name* %w) {
+define %Stack* @eval(%Stack* %s, %name* %w) {
   %word_ptr = getelementptr %name* %w, i64 0, i64 0
   %is_drop = call i1 @is_drop(i8* %word_ptr)
   br i1 %is_drop, label %drop, label %not_drop
@@ -399,108 +399,108 @@ not_dip:
   %is_do = call i1 @is_do(i8* %word_ptr)
   br i1 %is_do, label %do, label %not_keyword
 not_keyword:
-  ret %stack* undef
+  ret %Stack* undef
 drop:
-  %ret_drop = tail call %stack* @eval_drop(%stack* %s)
-  ret %stack* %ret_drop
+  %ret_drop = tail call %Stack* @eval_drop(%Stack* %s)
+  ret %Stack* %ret_drop
 dup:
-  %ret_dup = tail call %stack* @eval_dup(%stack* %s)
-  ret %stack* %ret_dup
+  %ret_dup = tail call %Stack* @eval_dup(%Stack* %s)
+  ret %Stack* %ret_dup
 dip:
-  %ret_dip = tail call %stack* @eval_dip(%stack* %s)
-  ret %stack* %ret_dip
+  %ret_dip = tail call %Stack* @eval_dip(%Stack* %s)
+  ret %Stack* %ret_dip
 do:
-  %ret_do = tail call %stack* @eval_do(%stack* %s)
-  ret %stack* %ret_do
+  %ret_do = tail call %Stack* @eval_do(%Stack* %s)
+  ret %Stack* %ret_do
 }
 
-define %stack* @eval_drop(%stack* %s) {
-  %is_nil_ptr = getelementptr %stack* %s, i64 0, i32 0
+define %Stack* @eval_drop(%Stack* %s) {
+  %is_nil_ptr = getelementptr %Stack* %s, i64 0, i32 0
   %is_nil = load i1* %is_nil_ptr
   br i1 %is_nil, label %not_nil, label %nil
 nil:
   ; handle underflow here
-  ret %stack* %s
+  ret %Stack* %s
 not_nil:
-  %rest_stack_ptr_ptr = getelementptr %stack* %s, i64 0, i32 2
-  %rest = load %stack** %rest_stack_ptr_ptr
-  ret %stack* %rest
+  %rest_stack_ptr_ptr = getelementptr %Stack* %s, i64 0, i32 2
+  %rest = load %Stack** %rest_stack_ptr_ptr
+  ret %Stack* %rest
 }
 
-define %stack* @eval_dup(%stack* %s) {
-  %is_nil_ptr = getelementptr %stack* %s, i64 0, i32 0
+define %Stack* @eval_dup(%Stack* %s) {
+  %is_nil_ptr = getelementptr %Stack* %s, i64 0, i32 0
   %is_nil = load i1* %is_nil_ptr
   br i1 %is_nil, label %not_nil, label %nil
 nil:
   ; handle underflow here
-  ret %stack* %s
+  ret %Stack* %s
 not_nil:
-  %e_ptr = getelementptr %stack* %s, i64 0, i32 1
-  %e = load %elem* %e_ptr
-  %e_copy = call %elem @copy_elem(%elem %e)
-  %new_stack = tail call %stack* @push_elem(%stack* %s, %elem %e_copy)
-  ret %stack* %new_stack
+  %e_ptr = getelementptr %Stack* %s, i64 0, i32 1
+  %e = load %Elem* %e_ptr
+  %e_copy = call %Elem @copy_elem(%Elem %e)
+  %new_stack = tail call %Stack* @push_elem(%Stack* %s, %Elem %e_copy)
+  ret %Stack* %new_stack
 }
 
-define %stack* @eval_dip(%stack* %s) {
-  %is_nil_ptr = getelementptr %stack* %s, i64 0, i32 0
+define %Stack* @eval_dip(%Stack* %s) {
+  %is_nil_ptr = getelementptr %Stack* %s, i64 0, i32 0
   %is_nil = load i1* %is_nil_ptr
   br i1 %is_nil, label %not_nil, label %nil
 not_nil:
-  %rest_stack_ptr_ptr = getelementptr %stack* %s, i64 0, i32 2
-  %rest = load %stack** %rest_stack_ptr_ptr
-  %e_ptr = getelementptr %stack* %s, i64 0, i32 1
-  %e = load %elem* %e_ptr
-  %e_type = extractvalue %elem %e, 0
+  %rest_stack_ptr_ptr = getelementptr %Stack* %s, i64 0, i32 2
+  %rest = load %Stack** %rest_stack_ptr_ptr
+  %e_ptr = getelementptr %Stack* %s, i64 0, i32 1
+  %e = load %Elem* %e_ptr
+  %e_type = extractvalue %Elem %e, 0
   br i1 %e_type, label %e_is_stack, label %e_is_name
 e_is_stack:
-  %quot = extractvalue %elem %e, 2
-  %is_rest_nil_ptr = getelementptr %stack* %rest, i64 0, i32 0
+  %quot = extractvalue %Elem %e, 2
+  %is_rest_nil_ptr = getelementptr %Stack* %rest, i64 0, i32 0
   %is_rest_nil = load i1* %is_rest_nil_ptr
   br i1 %is_rest_nil, label %rest_not_nil, label %rest_nil
 rest_not_nil:
-  %remaining_stack_ptr_ptr = getelementptr %stack* %rest, i64 0, i32 2
-  %remaining = load %stack** %remaining_stack_ptr_ptr
-  %e_dipped_ptr = getelementptr %stack* %rest, i64 0, i32 1
-  %e_dipped = load %elem* %e_dipped_ptr
+  %remaining_stack_ptr_ptr = getelementptr %Stack* %rest, i64 0, i32 2
+  %remaining = load %Stack** %remaining_stack_ptr_ptr
+  %e_dipped_ptr = getelementptr %Stack* %rest, i64 0, i32 1
+  %e_dipped = load %Elem* %e_dipped_ptr
 
-  %eval_quot = call %stack* @eval_stack(%stack* %remaining, %stack* %quot)
-  %new_stack = tail call %stack* @push_elem(%stack* %eval_quot, %elem %e_dipped)
-  ret %stack* %new_stack
+  %eval_quot = call %Stack* @eval_stack(%Stack* %remaining, %Stack* %quot)
+  %new_stack = tail call %Stack* @push_elem(%Stack* %eval_quot, %Elem %e_dipped)
+  ret %Stack* %new_stack
 nil:
   ; handle underflow here
-  ret %stack* undef
+  ret %Stack* undef
 e_is_name:
   ; element should be a stack!
-  ret %stack* undef
+  ret %Stack* undef
 rest_nil:
   ; handle underflow
-  ret %stack* undef
+  ret %Stack* undef
 }
 
-define %stack* @eval_do(%stack* %s) {
-  %is_nil_ptr = getelementptr %stack* %s, i64 0, i32 0
+define %Stack* @eval_do(%Stack* %s) {
+  %is_nil_ptr = getelementptr %Stack* %s, i64 0, i32 0
   %is_nil = load i1* %is_nil_ptr
   br i1 %is_nil, label %not_nil, label %nil
 not_nil:
-  %rest_stack_ptr_ptr = getelementptr %stack* %s, i64 0, i32 2
-  call void @free_stack(%stack* %s)
-  %rest = load %stack** %rest_stack_ptr_ptr
-  %e_ptr = getelementptr %stack* %s, i64 0, i32 1
-  %e = load %elem* %e_ptr
-  %e_type = extractvalue %elem %e, 0
+  %rest_stack_ptr_ptr = getelementptr %Stack* %s, i64 0, i32 2
+  call void @free_stack(%Stack* %s)
+  %rest = load %Stack** %rest_stack_ptr_ptr
+  %e_ptr = getelementptr %Stack* %s, i64 0, i32 1
+  %e = load %Elem* %e_ptr
+  %e_type = extractvalue %Elem %e, 0
   br i1 %e_type, label %e_is_stack, label %e_is_name
 e_is_stack:
-  %quot = extractvalue %elem %e, 2
-  %new_stack = tail call %stack* @eval_stack(%stack* %rest, %stack* %quot)
-  call void @free_stack_rec(%stack* %quot)
-  ret %stack* %new_stack
+  %quot = extractvalue %Elem %e, 2
+  %new_stack = tail call %Stack* @eval_stack(%Stack* %rest, %Stack* %quot)
+  call void @free_stack_rec(%Stack* %quot)
+  ret %Stack* %new_stack
 nil:
   ; handle underflow here
-  ret %stack* undef
+  ret %Stack* undef
 e_is_name:
   ; element should be a stack!
-  ret %stack* undef
+  ret %Stack* undef
 }
 
 ; endless loop for dip:
