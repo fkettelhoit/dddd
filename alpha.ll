@@ -196,7 +196,7 @@ define i32 @print_stack_with_space(%Stack* %s, i1 %space_delimited) {
   ; %is_nil_ptr = getelementptr %Stack* %s, i64 0, i32 0
   ; %is_nil = load i1* %is_nil_ptr
   %is_nil = call i1 @is_nil(%Stack* %s)
-  br i1 %is_nil, label %not_nil, label %nil
+  br i1 %is_nil, label %nil, label %not_nil
 nil:
   ret i32 0
 not_nil:

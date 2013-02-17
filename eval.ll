@@ -83,7 +83,7 @@ define %Stack* @eval_drop(%Stack* %s) {
   ; %is_nil_ptr = getelementptr %Stack* %s, i64 0, i32 0
   ; %is_nil = load i1* %is_nil_ptr
   %is_nil = call i1 @is_nil(%Stack* %s)
-  br i1 %is_nil, label %not_nil, label %nil
+  br i1 %is_nil, label %nil, label %not_nil
 nil:
   ; handle underflow here
   ret %Stack* %s
@@ -98,7 +98,7 @@ define %Stack* @eval_dup(%Stack* %s) {
   ; %is_nil_ptr = getelementptr %Stack* %s, i64 0, i32 0
   ; %is_nil = load i1* %is_nil_ptr
   %is_nil = call i1 @is_nil(%Stack* %s)
-  br i1 %is_nil, label %not_nil, label %nil
+  br i1 %is_nil, label %nil, label %not_nil
 nil:
   ; handle underflow here
   ret %Stack* %s
@@ -115,7 +115,7 @@ define %Stack* @eval_dip(%Stack* %s) {
   ; %is_nil_ptr = getelementptr %Stack* %s, i64 0, i32 0
   ; %is_nil = load i1* %is_nil_ptr
   %is_nil = call i1 @is_nil(%Stack* %s)
-  br i1 %is_nil, label %not_nil, label %nil
+  br i1 %is_nil, label %nil, label %not_nil
 not_nil:
   %rest = call %Stack* @rest(%Stack* %s)
   ; %rest_stack_ptr_ptr = getelementptr %Stack* %s, i64 0, i32 2
@@ -157,7 +157,7 @@ define %Stack* @eval_do(%Stack* %s) {
   ; %is_nil_ptr = getelementptr %Stack* %s, i64 0, i32 0
   ; %is_nil = load i1* %is_nil_ptr
   %is_nil = call i1 @is_nil(%Stack* %s)
-  br i1 %is_nil, label %not_nil, label %nil
+  br i1 %is_nil, label %nil, label %not_nil
 not_nil:
   %rest = call %Stack* @rest(%Stack* %s)
   %e = call %Elem @first(%Stack* %s)

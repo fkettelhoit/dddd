@@ -9,8 +9,8 @@ declare void @free(i8*)
 declare %name* @copy_name(%name*)
 
 define i1 @is_nil(%Stack* %s) {
-  %is_not_nil = icmp eq %Stack* %s, null
-  %is_nil = xor i1 %is_not_nil, 1
+  %is_nil = icmp eq %Stack* %s, null
+;  %is_nil = xor i1 %is_not_nil, 1
   ret i1 %is_nil
   ; %is_not_nil_ptr = getelementptr %Stack* %s, i64 0, i32 0
   ; %is_not_nil = load i1* %is_not_nil_ptr
@@ -168,7 +168,7 @@ define %Stack* @foldl(%Binary_stack_f* %f, %Stack* %init, %Stack* %s) {
 ;  %is_nil_ptr = getelementptr %Stack* %s, i64 0, i32 0
 ;  %is_nil = load i1* %is_nil_ptr
   %is_nil = call i1 @is_nil(%Stack* %s)
-  br i1 %is_nil, label %not_nil, label %nil
+  br i1 %is_nil, label %nil, label %not_nil
 nil:
   ret %Stack* %init
 not_nil:
