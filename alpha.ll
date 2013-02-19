@@ -25,6 +25,8 @@ declare %Elem @pop(%Stack)
 declare void @push(%Stack, %Elem)
 declare void @flip(%Stack)
 
+declare %Stack @copy_stack(%Stack)
+
 ; declare %Stack* @reverse_rec(%Stack*)
 declare %Elem @elem_from_name(%name*)
 declare %Elem @elem_from_stack(%Stack)
@@ -32,7 +34,7 @@ declare %Elem @elem_from_stack(%Stack)
 
 ;;; use eval.ll ;;;
 
-;declare %Stack* @eval_stack(%Stack*, %Stack*)
+declare void @eval_stack(%Stack, %Stack)
 
 ;;;
 
@@ -41,25 +43,31 @@ declare %Elem @elem_from_stack(%Stack)
 
 define i32 @main() {
 start:
-  %init = call %Stack @empty()
+  %stack = call %Stack @empty()
   br label %loop
 loop:
-  %stack_old = phi %Stack [%init, %start], [%stack_old, %loop]
-;  %stack_old = call %Stack* @reverse_rec(%Stack* %stack_old2)
+;  %stack = phi %Stack [%init, %start], [%stack, %loop]
+
   ; read
   %prompt = getelementptr [3 x i8]* @prompt, i64 0, i64 0
   call i32 @print(i8* %prompt)
-  %ops_rev = call %Stack @read()
-  call void @flip(%Stack %ops_rev)
-;  %ops = call %Stack* @reverse_rec(%Stack* %ops_rev)
+
+  %ops = call %Stack @read()
+  call void @flip(%Stack %ops)
+
   ; eval
-;  %stack_new = call %Stack* @eval_stack(%Stack* %stack_old, %Stack* %ops)
+  call void @eval_stack(%Stack %stack, %Stack %ops)
+
   ; print
-;  %stack_new_rev = call %Stack* @reverse_rec(%Stack* %stack_new)
   %indent = getelementptr [3 x i8]* @indent, i64 0, i64 0
   call i32 @print(i8* %indent)
-  call i32 @print_stack(%Stack %ops_rev)
+
+  %for_printing = call %Stack @copy_stack(%Stack %stack)
+  call void @flip(%Stack %for_printing)
+
+  call i32 @print_stack(%Stack %for_printing)
   call i32 @println()
+
   ; loop
   br label %loop
 }
