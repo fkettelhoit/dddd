@@ -63,10 +63,10 @@ define %Elem @pop(%Stack %ptr) {
   %next_ptr = load %Stack_Cell** %next_ptr_ptr
 
   ; free the top of the stack
-  ; %old_stack = bitcast %Stack_Cell* %stack to i8*
-  ; call void @free(i8* %old_stack)
+  %old_stack = bitcast %Stack_Cell* %stack to i8*
+  call void @free(i8* %old_stack)
 
-  ; ; change the stack pointer to the rest of the stack
+  ; change the stack pointer to the rest of the stack
   %ptr_ptr = getelementptr %Stack %ptr, i64 0
   store %Stack_Cell* %next_ptr, %Stack %ptr_ptr
 
@@ -93,6 +93,66 @@ define %Elem @elem_from_stack(%Stack %s) {
   %e = insertvalue %Elem %e_with_tag, %Stack %s, 2
   ret %Elem %e
 }
+
+define void @flip(%Stack %stack) {
+  ; create a new flipped stack
+  %flipped = call %Stack @empty()
+  call void @flip_(%Stack %stack, %Stack %flipped)
+
+  ; get the first cell of the flipped stack
+  %flipped_ptr = load %Stack %flipped
+
+  ; let the stack pointer of the stack point to the flipped cell
+  %ptr_ptr = getelementptr %Stack %stack, i64 0
+  store %Stack_Cell* %flipped_ptr, %Stack %ptr_ptr
+
+  ; still need to free the stack pointer of flipped
+  ; todo
+
+  ret void
+}
+
+define void @flip_(%Stack %stack, %Stack %flipped) {
+  %is_nil = call i1 @is_nil(%Stack %stack)
+  br i1 %is_nil, label %nil, label %not_nil
+nil:
+  ret void
+not_nil:
+  %e = call %Elem @pop(%Stack %stack)
+  %e_type = extractvalue %Elem %e, 0
+  br i1 %e_type, label %e_is_stack, label %continue
+e_is_stack:
+  %e_stack = extractvalue %Elem %e, 2
+  call void @flip(%Stack %e_stack)
+  %e_flipped = call %Elem @elem_from_stack(%Stack %e_stack)
+  br label %continue
+continue:
+  %e_new = phi %Elem [%e, %not_nil], [%e_flipped, %e_is_stack]
+  call void @push(%Stack %flipped, %Elem %e_new)
+
+  tail call void @flip_(%Stack %stack, %Stack %flipped)
+  ret void
+}
+
+; define %Stack @foldl(%Binary_stack_f* %f, %Stack %init, %Stack %stack) {
+;   %is_nil = call i1 @is_nil(%Stack %s)
+;   br i1 %is_nil, label %nil, label %not_nil
+; nil:
+;   ret %Stack* %init
+; not_nil:
+;   ; %e_ptr = getelementptr %Stack* %s, i64 0, i32 1
+;   ; %e = load %Elem* %e_ptr
+;   %e = call %Elem @first(%Stack* %s)
+
+;   ; %rest_stack_ptr_ptr = getelementptr %Stack* %s, i64 0, i32 2
+;   ; %rest = load %Stack** %rest_stack_ptr_ptr
+;   %rest = call %Stack* @rest(%Stack* %s)
+
+;   %new_init = call %Stack* %f(%Stack* %init, %Elem %e)
+;   %ret = tail call %Stack* @foldl(%Binary_stack_f* %f, %Stack* %new_init, %Stack* %rest)
+;   ret %Stack* %ret
+; }
+
 
 ;;; old implementation
 

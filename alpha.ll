@@ -23,6 +23,7 @@ declare i1 @is_nil(%Stack)
 declare %Stack @empty()
 declare %Elem @pop(%Stack)
 declare void @push(%Stack, %Elem)
+declare void @flip(%Stack)
 
 ; declare %Stack* @reverse_rec(%Stack*)
 declare %Elem @elem_from_name(%name*)
@@ -49,6 +50,7 @@ loop:
   %prompt = getelementptr [3 x i8]* @prompt, i64 0, i64 0
   call i32 @print(i8* %prompt)
   %ops_rev = call %Stack @read()
+  call void @flip(%Stack %ops_rev)
 ;  %ops = call %Stack* @reverse_rec(%Stack* %ops_rev)
   ; eval
 ;  %stack_new = call %Stack* @eval_stack(%Stack* %stack_old, %Stack* %ops)
