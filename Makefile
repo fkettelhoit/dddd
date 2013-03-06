@@ -1,11 +1,9 @@
-all: alpha.bc stack.bc eval.bc
-	llvm-link alpha.bc stack.bc eval.bc -o dddd.bc
+SOURCES := stack.ll eval.ll alpha.ll
+OBJECTS := ${SOURCES:.ll=.bc}
+EXECUTABLE := dddd.bc
 
-alpha.bc: alpha.ll
-	llvm-as alpha.ll
+all: $(OBJECTS)
+	llvm-link $(OBJECTS) -o $(EXECUTABLE)
 
-stack.bc: stack.ll
-	llvm-as stack.ll
-
-eval.bc: eval.ll
-	llvm-as eval.ll
+%.bc: %.ll
+	llvm-as $<

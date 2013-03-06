@@ -17,34 +17,13 @@ declare i32 @strcmp(i8*, i8*)
 %Elem = type {i1, %name*, %Stack}
 
 declare i1 @is_nil(%Stack)
-;declare %Elem @first(%Stack)
-;declare %Stack @rest(%Stack)
 declare %Stack @empty()
 declare %Elem @pop(%Stack)
 declare void @push(%Stack, %Elem)
 declare void @flip(%Stack)
 
-; declare %Stack @reverse_rec(%Stack)
 declare %Elem @elem_from_name(%name*)
 declare %Elem @elem_from_stack(%Stack)
-
-; declare i1 @is_nil(%Stack)
-; declare %Elem @first(%Stack)
-; declare %Stack @rest(%Stack)
-; declare %Stack @empty()
-; declare %Stack @push(%Stack, %Elem)
-
-; declare %Stack @reverse_rec(%Stack)
-; declare %Elem @elem_from_name(%name*)
-; declare %Elem @elem_from_stack(%Stack)
-; declare %Stack @foldl(%Binary_stack_f*, %Stack, %Stack)
-
-
-
-; define %Stack @eval_stack(%Stack %init, %Stack %ops) {
-;   %new = tail call %Stack @foldl(%Binary_stack_f* @eval_elem, %Stack %init, %Stack %ops)
-;   ret %Stack %new
-; }
 
 define void @eval_stack(%Stack %stack, %Stack %ops) {
   %is_nil = call i1 @is_nil(%Stack %ops)

@@ -5,10 +5,6 @@ declare i8* @strncpy(i8*, i8*, i32)
 ;;; types
 
 %name = type [256 x i8]
-;%Stack = type {%Elem, %Stack*}
-
-;%Binary_stack_f = type %Stack* (%Stack*, %Elem)
-;%Binary_stack_f = type opaque
 
 ;;; Stack type ;;;
 
@@ -18,8 +14,6 @@ declare i8* @strncpy(i8*, i8*, i32)
 %Elem = type {i1, %name*, %Stack}
 
 declare i1 @is_nil(%Stack)
-;declare %Elem @first(%Stack*)
-;declare %Stack* @rest(%Stack*)
 declare %Stack @empty()
 declare %Elem @pop(%Stack)
 declare void @push(%Stack, %Elem)
@@ -27,16 +21,12 @@ declare void @flip(%Stack)
 
 declare %Stack @copy_stack(%Stack)
 
-; declare %Stack* @reverse_rec(%Stack*)
 declare %Elem @elem_from_name(%name*)
 declare %Elem @elem_from_stack(%Stack)
-; declare %Stack* @foldl(%Binary_stack_f*, %Stack*, %Stack*)
 
 ;;; use eval.ll ;;;
 
 declare void @eval_stack(%Stack, %Stack)
-
-;;;
 
 @prompt = constant [3 x i8] c"> \00"
 @indent = constant [3 x i8] c"  \00"
@@ -46,8 +36,6 @@ start:
   %stack = call %Stack @empty()
   br label %loop
 loop:
-;  %stack = phi %Stack [%init, %start], [%stack, %loop]
-
   ; read
   %prompt = getelementptr [3 x i8]* @prompt, i64 0, i64 0
   call i32 @print(i8* %prompt)
@@ -122,7 +110,6 @@ define %Stack @read() {
 
 define void @read_(%Stack %stack) {
 loop_header:
-;  %current_name = alloca %name
   %current_name = call %name* @malloc_name()
   %current_name_start = getelementptr %name* %current_name, i64 0, i64 0
   br label %loop
@@ -149,7 +136,6 @@ bracket_open:
   ; push current word (if any)
   call void @push_current_word(%Stack %stack, %name* %current_name, i64 %idx)
   ; create a new stack and push everything until ']' on that stack
-;  %empty_stack = call %Stack @empty()
   %read_until_rbracket = call %Stack @read()
   ; add that stack as an element to our existing stack
   %elem_stack = call %Elem @elem_from_stack(%Stack %read_until_rbracket)
@@ -158,14 +144,6 @@ bracket_open:
   ret void
 bracket_close:
   br label %newline
-; bracket_open:
-;   %tag_bracket_open = load %tag* @tok_tag_bracket_open
-;   %tok_bracket_open = call %token @tok_from_tag(%tag %tag_bracket_open)
-;   ret %token %tok_bracket_open
-; bracket_close:
-;   %tag_bracket_close = load %tag* @tok_tag_bracket_close
-;   %tok_bracket_close = call %token @tok_from_tag(%tag %tag_bracket_close)
-;   ret %token %tok_bracket_close
 otherwise:
   %char_as_i8 = trunc i32 %char to i8
   store i8 %char_as_i8, i8* %current_name_end ; append char to current_name
@@ -190,9 +168,6 @@ push_and_return:
 @name_dip = constant %name c"dip\00                                                                                                                                                                                                                                                           \00"
 @name_do = constant %name c"do\00                                                                                                                                                                                                                                                            \00"
 
-; @example_stack = constant %Stack {i1 1, %Elem {i1 0, %name* @name_drop, %Stack @nil_stack}, %Stack @nil_stack}
-; @example_stack2 = constant %Stack {i1 1, %Elem {i1 0, %name* @name_dup, %Stack @nil_stack}, %Stack @example_stack}
-
 @str_lbracket = constant [2 x i8] c"[\00"
 @str_rbracket = constant [2 x i8] c"]\00"
 
@@ -208,8 +183,6 @@ define i32 @print_stack(%Stack %s) {
 @hello_there = constant [6 x i8] c"hello\00"
 
 define i32 @print_stack_with_space(%Stack %s, i1 %space_delimited) {
-  ; %is_nil_ptr = getelementptr %Stack %s, i64 0, i32 0
-  ; %is_nil = load i1* %is_nil_ptr
   %is_nil = call i1 @is_nil(%Stack %s)
   br i1 %is_nil, label %nil, label %not_nil
 nil:
@@ -221,24 +194,14 @@ with_space:
   call i32 @print(i8* %just_space)
   br label %continue
 continue:
-  ; %hello = getelementptr [6 x i8]* @hello_there, i64 0, i64 0
-  ; call i32 @print(i8* %hello)
-
-  ; %e_ptr = getelementptr %Stack %s, i64 0, i32 1
-  ; %e = load %Elem* %e_ptr
-;  %e = call %Elem @first(%Stack %s)
   %e = call %Elem @pop(%Stack %s)
   %e_type = extractvalue %Elem %e, 0
-  ; %rest_stack_ptr_ptr = getelementptr %Stack %s, i64 0, i32 2
-  ; %rest_stack_ptr = load %Stack* %rest_stack_ptr_ptr
-;  %rest_stack_ptr = call %Stack @rest(%Stack %s)
   br i1 %e_type, label %e_is_stack, label %e_is_name
 e_is_name:
   %e_name = extractvalue %Elem %e, 1
   %name_ptr = getelementptr %name* %e_name, i64 0, i64 0
   call i32 @print(i8* %name_ptr)
   %ret_name = tail call i32 @print_stack_with_space(%Stack %s, i1 1)
-;  ret i32 %ret_name
   ret i32 0
 e_is_stack:
   %str_lbracket = getelementptr [2 x i8]* @str_lbracket, i64 0, i64 0
